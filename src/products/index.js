@@ -35,6 +35,7 @@ productsRouter.get("/", async (req, res, next) => {
       },
       ...(req.query.limit && { limit: req.query.limit }),
       ...(req.query.offset && { offset: req.query.offset }),
+      order: [["name", "ASC"]],
     });
     res.send(products);
   } catch (error) {
