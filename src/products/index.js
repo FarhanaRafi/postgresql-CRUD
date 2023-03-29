@@ -23,15 +23,20 @@ productsRouter.get("/", async (req, res, next) => {
       query.price = { [Op.between]: [req.query.minPrice, req.query.maxPrice] };
     if (req.query.category)
       query.category = { [Op.iLike]: `%${req.query.category}%` };
+    if (req.query.filter)
+      query[Op.or] = [
+        { name: { [Op.iLike]: `%${req.query.filter}%` } },
+        { description: { [Op.iLike]: `%${req.query.filter}%` } },
+      ];
     const products = await ProductsModel.findAndCountAll({
       where: {
         ...query,
-        ...(req.query.search && {
-          [Op.or]: [
-            { name: { [Op.iLike]: `%${req.query.search}%` } },
-            { description: { [Op.iLike]: `%${req.query.search}%` } },
-          ],
-        }),
+        // ...(req.query.filter && {
+        //   [Op.or]: [
+        //     { name: { [Op.iLike]: `%${req.query.filter}%` } },
+        //     { description: { [Op.iLike]: `%${req.query.filter}%` } },
+        //   ],
+        // }),
       },
       ...(req.query.limit && { limit: req.query.limit }),
       ...(req.query.offset && { offset: req.query.offset }),
