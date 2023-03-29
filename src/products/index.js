@@ -2,6 +2,9 @@ import express from "express";
 import createHttpError from "http-errors";
 import ProductsModel from "./model.js";
 import { Op } from "sequelize";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import multer from "multer";
 
 const productsRouter = express.Router();
 
@@ -16,13 +19,22 @@ productsRouter.post("/", async (req, res, next) => {
 productsRouter.get("/", async (req, res, next) => {
   try {
     const query = {};
-    if (req.query.name) query.name = { [Op.iLike]: `%${req.query.name}%` };
     if (req.query.minPrice && req.query.maxPrice)
       query.price = { [Op.between]: [req.query.minPrice, req.query.maxPrice] };
     if (req.query.category)
       query.category = { [Op.iLike]: `%${req.query.category}%` };
     const products = await ProductsModel.findAndCountAll({
-      where: { ...query },
+      where: {
+        ...query,
+        ...(req.query.search && {
+          [Op.or]: [
+            { name: { [Op.iLike]: `%${req.query.search}%` } },
+            { description: { [Op.iLike]: `%${req.query.search}%` } },
+          ],
+        }),
+      },
+      ...(req.query.limit && { limit: req.query.limit }),
+      ...(req.query.offset && { offset: req.query.offset }),
     });
     res.send(products);
   } catch (error) {
@@ -87,5 +99,39 @@ productsRouter.delete("/:productId", async (req, res, next) => {
     next(error);
   }
 });
+
+const cloudinaryUploader = multer({
+  storage: new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: "BE-PDB/products",
+    },
+  }),
+}).single("cover");
+
+productsRouter.post(
+  "/:productId/uploadCover",
+  cloudinaryUploader,
+  async (req, res, next) => {
+    try {
+      console.log(req.file, "req file");
+      const product = await ProductsModel.findByPk(req.params.productId);
+      product.imageUrl = req.file.path;
+      await product.save();
+      if (product) {
+        res.send({ message: "File uploaded successfully" });
+      } else {
+        next(
+          createHttpError(
+            404,
+            `Product with id ${req.params.productId} not found`
+          )
+        );
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default productsRouter;
