@@ -8,6 +8,7 @@ import multer from "multer";
 import ProductsCategoriesModel from "./productsCategoriesModel.js";
 import CategoriesModel from "../categories/model.js";
 import ReviewsModel from "../reviews/model.js";
+import UsersModel from "../users/model.js";
 
 const productsRouter = express.Router();
 
@@ -57,7 +58,14 @@ productsRouter.get("/", async (req, res, next) => {
           attributes: ["name"],
           through: { attributes: [] },
         },
-        { model: ReviewsModel, attributes: ["content"] },
+        {
+          model: ReviewsModel,
+          include: [
+            { model: UsersModel, attributes: ["firstName", "lastName"] },
+          ],
+          attributes: ["content"],
+        },
+        // { model: UsersModel, attributes: ["firstName", "lastName"] },
       ],
     });
     res.send(products);
