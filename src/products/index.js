@@ -5,12 +5,22 @@ import { Op } from "sequelize";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
+import ProductsCategoriesModel from "./productsCategoriesModel.js";
+import CategoriesModel from "../categories/model.js";
+import ReviewsModel from "../reviews/model.js";
 
 const productsRouter = express.Router();
 
 productsRouter.post("/", async (req, res, next) => {
   try {
     const { productId } = await ProductsModel.create(req.body);
+    if (req.body.categories) {
+      await ProductsCategoriesModel.bulkCreate(
+        req.body.categories.map((category) => {
+          return { productId: productId, categoryId: category };
+        })
+      );
+    }
     res.status(201).send({ productId });
   } catch (error) {
     next(error);
@@ -21,8 +31,8 @@ productsRouter.get("/", async (req, res, next) => {
     const query = {};
     if (req.query.minPrice && req.query.maxPrice)
       query.price = { [Op.between]: [req.query.minPrice, req.query.maxPrice] };
-    if (req.query.category)
-      query.category = { [Op.iLike]: `%${req.query.category}%` };
+    // if (req.query.category)
+    //   query.category = { [Op.iLike]: `%${req.query.category}%` };
     if (req.query.filter)
       query[Op.or] = [
         { name: { [Op.iLike]: `%${req.query.filter}%` } },
@@ -41,6 +51,14 @@ productsRouter.get("/", async (req, res, next) => {
       ...(req.query.limit && { limit: req.query.limit }),
       ...(req.query.offset && { offset: req.query.offset }),
       order: [["name", "ASC"]],
+      include: [
+        {
+          model: CategoriesModel,
+          attributes: ["name"],
+          through: { attributes: [] },
+        },
+        { model: ReviewsModel, attributes: ["content"] },
+      ],
     });
     res.send(products);
   } catch (error) {
